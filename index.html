@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Circulação Fetal — ECUS/LMF-UNIFOR</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:Arial,sans-serif;background:#0d1824;color:#e8e8e8;min-height:100vh;overflow-x:hidden;}
+
+/* ── HEADER ── */
+.hdr{background:#1A2A4A;border-bottom:3px solid #E8A020;padding:10px 14px 8px;}
+.hdr-title{font-size:14px;font-weight:bold;color:#E8A020;letter-spacing:.5px;}
+.hdr-sub{font-size:10px;color:#8899bb;margin-top:2px;}
+
+/* ── PHASE DOTS ── */
+.dots{display:flex;gap:8px;padding:10px 0 4px;justify-content:center;align-items:center;}
+.dot{width:9px;height:9px;border-radius:50%;background:#2a3a55;transition:all .3s;}
+.dot.active{background:#E8A020;box-shadow:0 0 6px #E8A02060;}
+.dot.done{background:#4caf50;}
+.dot-label{font-size:10px;color:#556;margin:0 4px;}
+
+/* ── PHASE SCREENS ── */
+.phase{display:none;}
+.phase.active{display:block;}
+
+/* ── SECTION HEADER ── */
+.sec-hdr{background:#1A2A4A;border-left:4px solid #E8A020;padding:10px 14px;font-size:12px;font-weight:bold;color:#E8A020;letter-spacing:.3px;}
+.sec-body{padding:10px 14px;font-size:11px;color:#9aabb8;line-height:1.6;}
+
+/* ── DIAGRAM ── */
+#diag-outer{overflow-x:auto;padding:6px 0;-webkit-overflow-scrolling:touch;}
+#diag-wrap{position:relative;width:340px;height:618px;margin:0 auto;}
+#diag-wrap svg{position:absolute;top:0;left:0;pointer-events:none;}
+
+/* ── SLOTS ── */
+.slot{
+  position:absolute;transform:translate(-50%,-50%);
+  width:82px;height:36px;border-radius:7px;
+  border:2px dashed #344a66;background:#111e30;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-weight:bold;text-align:center;color:#4a6080;
+  cursor:pointer;transition:border-color .2s,background .2s,color .2s;
+  line-height:1.15;padding:3px 4px;z-index:10;
+  user-select:none;
+}
+.slot.shunt{border-color:#5a4000;color:#6a5010;}
+.slot.waiting{border-color:#E8A020;background:#1c2a10;animation:pulse 1s infinite alternate;}
+@keyframes pulse{from{box-shadow:0 0 0 0 #E8A02040}to{box-shadow:0 0 0 6px #E8A02000}}
+.slot.filled{border-style:solid;border-color:#2d4a7a;background:#162238;color:#c8d8ee;}
+.slot.correct{border-color:#4caf50!important;background:#0d2010!important;color:#7de090!important;}
+.slot.wrong{border-color:#e53935!important;background:#1c0808!important;color:#ff8a80!important;}
+.slot.grayed{opacity:.5;}
+
+/* ── LEGEND ── */
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:8px 14px;font-size:10px;color:#668;}
+.leg-item{display:flex;align-items:center;gap:5px;}
+.leg-dot{width:22px;height:3px;border-radius:2px;}
+
+/* ── CARD BANK ── */
+.bank-label{font-size:10px;color:#556;text-align:center;padding:6px 0 2px;}
+#card-bank{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 10px;justify-content:center;}
+.card{
+  background:#162238;border:1.5px solid #2d4a7a;border-radius:7px;
+  padding:5px 9px;font-size:10.5px;cursor:pointer;color:#9bb0cc;
+  transition:all .2s;user-select:none;white-space:nowrap;
+}
+.card:active{transform:scale(.96);}
+.card.selected{background:#E8A020;color:#1A2A4A;border-color:#E8A020;font-weight:bold;}
+.card.used{opacity:.25;pointer-events:none;}
+
+/* ── HINT BAR ── */
+.hint-bar{text-align:center;font-size:10px;padding:5px 12px;min-height:22px;color:#E8A020;}
+
+/* ── BUTTONS ── */
+.btn{display:block;margin:10px auto;padding:11px 26px;border:none;border-radius:8px;font-size:13px;font-weight:bold;cursor:pointer;transition:all .2s;}
+.btn-gold{background:#E8A020;color:#1A2A4A;}
+.btn-gold:active{background:#ffc040;}
+.btn-navy{background:transparent;color:#E8A020;border:2px solid #E8A020;margin-top:6px;}
+.btn-navy:active{background:#E8A02015;}
+
+/* ── SCORE ── */
+.score-wrap{text-align:center;padding:18px 10px 8px;}
+.score-num{font-size:52px;font-weight:bold;color:#E8A020;line-height:1;}
+.score-denom{font-size:14px;color:#668;margin-top:4px;}
+.score-stars{font-size:22px;margin-top:6px;}
+
+/* ── RESULT LIST ── */
+.res-item{display:flex;align-items:flex-start;gap:10px;padding:8px 14px;margin:3px 10px;border-radius:7px;font-size:11px;}
+.res-ok{background:#0d2010;border:1px solid #2a4a2a;}
+.res-err{background:#1c0808;border:1px solid #4a1a1a;}
+.res-icon{font-size:16px;margin-top:1px;}
+.res-desc{font-size:10px;color:#668;margin-top:2px;line-height:1.4;}
+
+/* ── QUESTIONS ── */
+.q-box{margin:10px 12px;background:#122030;border-radius:9px;padding:14px;border:1px solid #1e3550;}
+.q-text{font-size:12px;color:#c8d8ee;margin-bottom:10px;line-height:1.5;}
+.q-opt{display:block;width:100%;text-align:left;background:#0d1824;border:1.5px solid #1e3550;border-radius:6px;padding:9px 11px;margin:5px 0;font-size:11px;color:#8aabcc;cursor:pointer;transition:all .2s;line-height:1.4;}
+.q-opt:active{transform:scale(.99);}
+.q-opt.q-chosen{border-color:#E8A020;color:#E8A020;}
+.q-opt.q-right{border-color:#4caf50!important;background:#0d2010!important;color:#7de090!important;}
+.q-opt.q-wrong{border-color:#e53935!important;background:#1c0808!important;color:#ff8a80!important;}
+.q-exp{margin-top:10px;font-size:10.5px;color:#7de090;background:#0d2010;padding:8px 10px;border-radius:6px;border-left:3px solid #4caf50;line-height:1.5;}
+
+/* ── NEONATAL ── */
+.neo-grid{display:flex;flex-wrap:wrap;gap:7px;padding:10px 12px;justify-content:center;}
+.neo-btn{background:#122030;border:1.5px solid #1e3550;border-radius:7px;padding:7px 12px;font-size:11px;cursor:pointer;color:#8aabcc;transition:all .2s;}
+.neo-btn.sel-close{background:#2a0808;border-color:#e53935;color:#ff8a80;}
+.neo-result{margin:10px 14px;font-size:11px;line-height:1.8;background:#0d1824;border-radius:8px;padding:12px 14px;}
+
+/* ── FINAL CARDS ── */
+.fact-card{margin:10px 12px;background:#122030;border-radius:9px;padding:14px 16px;border:1px solid #1e3550;}
+.fact-title{font-size:12px;font-weight:bold;color:#E8A020;margin-bottom:8px;}
+.fact-body{font-size:11px;color:#9aabb8;line-height:1.8;}
+
+/* ── FOOTER ── */
+.footer{text-align:center;padding:14px 12px 20px;font-size:9px;color:#334;border-top:1px solid #1A2A4A;margin-top:10px;}
+
+/* ── PROGRESS BAR ── */
+.prog-bar-wrap{height:3px;background:#1e2a3a;margin:0;}
+.prog-bar{height:3px;background:#E8A020;transition:width .4s;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-title">🫀 CIRCULAÇÃO FETAL</div>
+  <div class="hdr-sub">ECUS · Liga de Medicina Fetal — UNIFOR · Dr. Carlos Guimarães CRM-CE 6180</div>
+</div>
+<div class="prog-bar-wrap"><div class="prog-bar" id="prog" style="width:25%"></div></div>
+
+<!-- DOTS -->
+<div class="dots">
+  <div class="dot active" id="d1"></div>
+  <span class="dot-label">Montagem</span>
+  <div class="dot" id="d2"></div>
+  <span class="dot-label">Gabarito</span>
+  <div class="dot" id="d3"></div>
+  <span class="dot-label">E se?</span>
+  <div class="dot" id="d4"></div>
+  <span class="dot-label">Nascimento</span>
+</div>
+
+<!-- ════════════════════════════════════ -->
+<!-- FASE 1 — MONTAGEM                   -->
+<!-- ════════════════════════════════════ -->
+<div class="phase active" id="p1">
+  <div class="sec-hdr">FASE 1 — Montagem Intuitiva</div>
+  <div class="sec-body">Selecione uma peça e toque no slot correto no diagrama para posicioná-la. Monte o circuito fetal completo.</div>
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#e85c5c"></div> Oxigenado</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#5c8ee8"></div> Desoxigenado</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#E8A020;border-top:2px dashed #E8A020;background:none;height:0;border-bottom:none;border-left:none;border-right:none;"></div> Shunt</div>
+    <div class="leg-item" style="color:#E8A020;">── ─ ── Shunt (bypass)</div>
+  </div>
+
+  <div id="diag-outer">
+    <div id="diag-wrap">
+      <svg id="svgconn" width="340" height="618" viewBox="0 0 340 618" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+
+  <div class="bank-label">Peças disponíveis — toque para selecionar:</div>
+  <div id="card-bank"></div>
+  <div class="hint-bar" id="hint">Nenhuma peça selecionada</div>
+  <button class="btn btn-gold" onclick="checkP1()">✓  Verificar Montagem</button>
+</div>
+
+<!-- ════════════════════════════════════ -->
+<!-- FASE 2 — RESULTADO                  -->
+<!-- ════════════════════════════════════ -->
+<div class="phase" id="p2">
+  <div class="sec-hdr">RESULTADO — Gabarito</div>
+  <div class="score-wrap">
+    <div class="score-num" id="score-n">0</div>
+    <div class="score-denom">de <span id="score-t">15</span> estruturas corretas</div>
+    <div class="score-stars" id="score-stars">⭐⭐⭐</div>
+  </div>
+  <div id="res-list"></div>
+  <button class="btn btn-gold" onclick="goP3()">→  Rodada 2: E se...?</button>
+  <button class="btn btn-navy" onclick="resetP1()">↺  Tentar Novamente</button>
+</div>
+
+<!-- ════════════════════════════════════ -->
+<!-- FASE 3 — E SE?                      -->
+<!-- ════════════════════════════════════ -->
+<div class="phase" id="p3">
+  <div class="sec-hdr">RODADA 2 — E se o shunt falhar?</div>
+  <div class="sec-body">Raciocínio por consequência. Escolha a melhor resposta para cada situação:</div>
+  <div id="q-container"></div>
+  <button class="btn btn-gold" id="btn-checkq" style="display:none" onclick="checkQs()">✓  Ver Resultado das Questões</button>
+  <button class="btn btn-gold" id="btn-goP4" style="display:none" onclick="goP4()">→  Rodada 3: O Bebê Nasceu!</button>
+</div>
+
+<!-- ════════════════════════════════════ -->
+<!-- FASE 4 — TRANSIÇÃO NEONATAL         -->
+<!-- ════════════════════════════════════ -->
+<div class="phase" id="p4">
+  <div class="sec-hdr">🍼 RODADA 3 — O Bebê Nasceu!</div>
+  <div class="sec-body">O primeiro choro. A resistência pulmonar despencou. <b>Selecione as estruturas que FECHAM ao nascimento:</b></div>
+  <div class="neo-grid" id="neo-opts"></div>
+  <button class="btn btn-gold" onclick="checkNeo()">✓  Verificar</button>
+  <div class="neo-result" id="neo-result" style="display:none"></div>
+  <button class="btn btn-gold" id="btn-final" style="display:none" onclick="goFinal()">→  Ver Resumo Final</button>
+</div>
+
+<!-- ════════════════════════════════════ -->
+<!-- FINAL                               -->
+<!-- ════════════════════════════════════ -->
+<div class="phase" id="pfinal">
+  <div class="sec-hdr">🏁 Jogo Concluído</div>
+  <div style="text-align:center;padding:18px 14px 10px;">
+    <div style="font-size:36px;margin-bottom:8px;">🎓</div>
+    <div style="font-size:14px;color:#E8A020;font-weight:bold;line-height:1.5;">"A natureza chegou exatamente<br>na mesma solução lógica que vocês."</div>
+    <div style="font-size:10px;color:#446;margin-top:4px;">— Dr. Carlos Guimarães</div>
+  </div>
+
+  <div class="fact-card">
+    <div class="fact-title">🔶 Os 3 Shunts Fetais</div>
+    <div class="fact-body">
+      <b style="color:#c8d8ee;">Ducto Venoso</b> — bypass do fígado · fecha em dias/semanas → ligamento venoso<br>
+      <b style="color:#c8d8ee;">Forame Oval</b> — AD → AE · fecha com 1ª respiração → fossa oval<br>
+      <b style="color:#c8d8ee;">Ducto Arterioso</b> — TP → Aorta · fecha em horas/dias → ligamento arterioso
+    </div>
+  </div>
+
+  <div class="fact-card">
+    <div class="fact-title">🧠 Prioridade de O₂ no Feto</div>
+    <div class="fact-body">
+      Sangue <b style="color:#e85c5c;">mais oxigenado</b>: veia umbilical → ducto venoso → VCI → AD → FO → AE → VE → <b>Aorta ascendente → Coronárias e Cérebro</b><br><br>
+      Pulmões recebem apenas <b>~8% do débito</b> (alta resistência intrapulmonar fetal).
+    </div>
+  </div>
+
+  <div class="fact-card">
+    <div class="fact-title">⚡ Gatilho do Fechamento ao Nascer</div>
+    <div class="fact-body">
+      Queda da PO₂ → vasodilatação pulmonar → ↑ fluxo pulmonar → ↑ pressão AE → FO fecha funcionalmente.<br>
+      ↑ PO₂ → prostaglandinas → vasoconstricção do DA → fechamento muscular.
+    </div>
+  </div>
+
+  <button class="btn btn-gold" onclick="resetAll()" style="margin-top:14px;">↺  Jogar Novamente</button>
+</div>
+
+<div class="footer">
+  ECUS — Escola Cearense de Ultrassonografia &nbsp;|&nbsp; Liga de Medicina Fetal — UNIFOR &nbsp;|&nbsp; Material didático exclusivo
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+
+const SLOTS = [
+  {id:'placenta', label:'Placenta',          cx:170, cy:30,  type:'organ',   desc:'Troca gasosa O₂/CO₂ com a circulação materna'},
+  {id:'veia_umb', label:'Veia Umbilical',    cx:96,  cy:108, type:'vessel',  desc:'Conduz sangue oxigenado da placenta ao feto'},
+  {id:'ducto_ven',label:'Ducto Venoso',      cx:96,  cy:182, type:'shunt',   desc:'Shunt hepático: desvia parte do fluxo pelo fígado direto à VCI'},
+  {id:'vci',      label:'VCI',              cx:96,  cy:256, type:'vessel',  desc:'Veia Cava Inferior — drena para o Átrio Direito'},
+  {id:'ad',       label:'AD',              cx:72,  cy:328, type:'chamber', desc:'Átrio Direito — recebe sangue venoso sistêmico e umbilical'},
+  {id:'fo',       label:'Forame Oval',      cx:176, cy:328, type:'shunt',   desc:'Shunt cardíaco: desvia sangue do AD → AE, bypassa pulmões'},
+  {id:'ae',       label:'AE',              cx:268, cy:328, type:'chamber', desc:'Átrio Esquerdo — recebe sangue oxigenado via Forame Oval'},
+  {id:'vd',       label:'VD',              cx:72,  cy:412, type:'chamber', desc:'Ventrículo Direito — bombeia para Tronco Pulmonar'},
+  {id:'ve',       label:'VE',              cx:268, cy:412, type:'chamber', desc:'Ventrículo Esquerdo — bombeia para Aorta (sangue mais rico)'},
+  {id:'trpulm',   label:'Tronco Pulmonar', cx:42,  cy:494, type:'vessel',  desc:'Sai do VD — alta resistência pulmonar, pouco vai aos pulmões'},
+  {id:'da',       label:'Ducto Arterioso', cx:176, cy:482, type:'shunt',   desc:'Shunt pulmonar: Tronco Pulmonar → Aorta descendente'},
+  {id:'aorta',    label:'Aorta',           cx:268, cy:494, type:'vessel',  desc:'VE → Aorta ascendente → Corpo superior (sangue mais oxigenado)'},
+  {id:'pulmoes',  label:'Pulmões ⚠',       cx:36,  cy:572, type:'organ',   desc:'Alta resistência (líquido alveolar) — recebem ~8% do débito cardíaco'},
+  {id:'corpo',    label:'Corpo / Cérebro', cx:192, cy:572, type:'organ',   desc:'Recebe o sangue mais oxigenado via Aorta ascendente'},
+  {id:'art_umb',  label:'Art. Umbilicais', cx:294, cy:572, type:'vessel',  desc:'2 artérias retornam sangue desoxigenado do feto à placenta'},
+];
+
+// [from, to, color, dashed]
+const CONNS = [
+  ['art_umb','placenta','#5c8ee8',false],   // return to placenta (right loop)
+  ['placenta','veia_umb','#e85c5c',false],
+  ['veia_umb','ducto_ven','#e8a020',true],
+  ['ducto_ven','vci','#e85c5c',false],
+  ['vci','ad','#e85c5c',false],
+  ['ad','fo','#e8a020',true],
+  ['fo','ae','#e8a020',true],
+  ['ad','vd','#5c8ee8',false],
+  ['ae','ve','#e85c5c',false],
+  ['vd','trpulm','#5c8ee8',false],
+  ['trpulm','pulmoes','#5c8ee8',true],
+  ['trpulm','da','#e8a020',true],
+  ['da','aorta','#e8a020',true],
+  ['ve','aorta','#e85c5c',false],
+  ['aorta','corpo','#e85c5c',false],
+  ['corpo','art_umb','#5c8ee8',false],
+];
+
+const QUESTIONS = [
+  {
+    q:'Se o Forame Oval fechar prematuramente intraútero, qual a consequência hemodinâmica esperada?',
+    opts:[
+      'O VD sobrecarrega-se progressivamente e o AE fica privado de fluxo — subdesenvolvimento do VE e Síndrome de Hipoplasia do Coração Esquerdo (SHCE)',
+      'O Ducto Arterioso compensa em sentido retrógrado: sangue da Aorta refluiria pelas veias pulmonares → AE, mantendo o VE com fluxo suficiente para desenvolvimento normal',
+      'O VD hipertrofia e assume função biventricular via comunicação interventricular compensatória, mantendo débito sistêmico adequado até o nascimento',
+      'O sangue oxigenado acumula no AD e é redistribuído via seio coronário ao VE, preservando sua função contrátil',
+    ],
+    ans:0,
+    exp:'Sem o FO, o AE fica privado de fluxo → VE subdesenvolvido → SHCE, uma das cardiopatias congênitas mais graves. As demais opções descrevem mecanismos compensatórios fisiologicamente impossíveis: o DA não tem como reverter para encher o AE, o VD não assume função biventricular via CIV compensatória, e o seio coronário não tem capacidade de redistribuir débito ventricular.',
+  },
+  {
+    q:'O Ducto Arterioso não fecha ao nascer (Persistência do Canal Arterial — PCA). Qual a fisiopatologia correta?',
+    opts:[
+      'Shunt direita→esquerda (TP → Aorta): sangue venoso mistura-se à circulação sistêmica, causando cianose central — fisiologia idêntica à circulação fetal',
+      'Shunt esquerda→direita (Aorta → TP): maior pressão aórtica pós-nascimento inverte o fluxo, sobrecarregando a circulação pulmonar e podendo causar hipertensão pulmonar',
+      'Sopro contínuo em maquinaria sem repercussão hemodinâmica: o DA patente em RN a termo fecha espontaneamente em dias, sendo considerado variante da normalidade',
+      'Queda isolada do débito sistêmico: a "fuga" de volume da Aorta para o TP reduz o volume sistólico do VE sem afetar a pressão pulmonar',
+    ],
+    ans:1,
+    exp:'Com a queda da resistência pulmonar ao nascer, a pressão aórtica supera a pulmonar e o fluxo inverte: Aorta → TP (shunt E→D). Isso causa hiperafluência pulmonar e pode evoluir para hipertensão pulmonar (Síndrome de Eisenmenger, quando o shunt volta a ser D→E). A opção A descreve exatamente a fisiologia fetal — correta intraútero, errada após o nascimento. Tratamento: indometacina (inibe prostaglandinas) ou ligação cirúrgica.',
+  },
+  {
+    q:'O sangue desoxigenado da VCS e das veias hepáticas também drena para o Átrio Direito. Como o sangue mais oxigenado, vindo da veia umbilical, consegue preferenciamente atravessar o Forame Oval e chegar ao Átrio Esquerdo?',
+    opts:[
+      'A Válvula de Eustáquio (valva da VCI) direciona anatomicamente todo o sangue da VCI ao Forame Oval, enquanto o sangue da VCS é desviado ao VD pela crista dividens — a separação é estrutural, não hemodinâmica',
+      'O Ducto Venoso funciona como um funil: ao estreitar sua secção transversa em relação ao ramo portal, aumenta a velocidade do fluxo umbilical — esse jato de alta velocidade cria uma corrente laminar preferencial que atravessa o AD direto ao Forame Oval, enquanto o sangue menos oxigenado da VCS e veias hepáticas, com menor energia cinética, segue para o VD via tricúspide',
+      'A maior concentração de HbF eleva a viscosidade do sangue umbilical, mantendo-o em fluxo laminar coeso e separado do sangue menos viscoso da VCS no interior do AD',
+      'O gradiente de temperatura entre o sangue umbilical (mais frio, vindo da placenta) e o sangue sistêmico (mais quente) cria estratificação por densidade no AD, posicionando o sangue umbilical adjacente ao Forame Oval',
+    ],
+    ans:1,
+    exp:'O Ducto Venoso funciona como bocal de mangueira (Bernoulli): a redução da secção transversa converte pressão em velocidade. O jato de alta velocidade percorre a parede posteromedial do AD criando uma "parede laminar virtual" — o sangue umbilical (rico em O₂, alta energia cinética) dirige-se ao FO; o sangue da VCS e veias hepáticas (menor velocidade) vai à tricúspide → VD. Atenção: a Válvula de Eustáquio (opção A) existe e contribui anatomicamente para direcionar o fluxo da VCI em direção ao FO — mas ela não distingue o sangue umbilical do hepatoportal, que chegam misturados na VCI. O mecanismo que SEPARA o mais do menos oxigenado é a diferença de energia cinética gerada pelo funil do Ducto Venoso.',
+  },
+];
+
+const CLOSES = new Set(['fo','da','ducto_ven','veia_umb','art_umb']);
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let slotMap = {};   // id → label|null
+let selCard = null;
+let qAnswers = [];
+let neoSel = new Set();
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+function init(){
+  SLOTS.forEach(s => slotMap[s.id] = null);
+  drawConnections();
+  renderSlots();
+  renderBank();
+}
+
+// ═══════════════════════════════════════════════
+// SVG
+// ═══════════════════════════════════════════════
+function slotPos(id){ return SLOTS.find(s=>s.id===id); }
+
+function drawConnections(){
+  const svg = document.getElementById('svgconn');
+  const colors = {
+    '#e85c5c':'arr-red',
+    '#5c8ee8':'arr-blue',
+    '#e8a020':'arr-gold',
+  };
+  svg.innerHTML = `<defs>
+    <marker id="arr-red"  markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L0,7 L9,3.5 z" fill="#e85c5c"/></marker>
+    <marker id="arr-blue" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L0,7 L9,3.5 z" fill="#5c8ee8"/></marker>
+    <marker id="arr-gold" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L0,7 L9,3.5 z" fill="#e8a020"/></marker>
+  </defs>`;
+
+  CONNS.forEach(([fid,tid,col,dash])=>{
+    const f=slotPos(fid), t=slotPos(tid);
+    if(!f||!t) return;
+    let d;
+    if(fid==='art_umb'&&tid==='placenta'){
+      d=`M ${f.cx} ${f.cy} C 336 ${f.cy}, 336 ${t.cy+60}, ${t.cx+46} ${t.cy}`;
+    } else if(fid==='trpulm'&&tid==='da'){
+      d=`M ${f.cx} ${f.cy} Q 108 ${f.cy+16} ${t.cx} ${t.cy}`;
+    } else if(fid==='ad'&&tid==='fo'){
+      d=`M ${f.cx+41} ${f.cy} L ${t.cx-41} ${t.cy}`;
+    } else if(fid==='fo'&&tid==='ae'){
+      d=`M ${f.cx+41} ${f.cy} L ${t.cx-41} ${t.cy}`;
+    } else if(fid==='da'&&tid==='aorta'){
+      d=`M ${t.cx-41} ${t.cy-6} L ${t.cx-41} ${t.cy-8}`;
+      // just draw the curve
+      d=`M ${f.cx+30} ${f.cy} Q ${f.cx+70} ${f.cy+12} ${t.cx-41} ${t.cy}`;
+    } else {
+      d=`M ${f.cx} ${f.cy} L ${t.cx} ${t.cy}`;
+    }
+    const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+    el.setAttribute('d',d);
+    el.setAttribute('stroke',col);
+    el.setAttribute('stroke-width',dash?'1.8':'2.2');
+    el.setAttribute('fill','none');
+    el.setAttribute('stroke-dasharray',dash?'6,4':'none');
+    el.setAttribute('marker-end',`url(#${colors[col]})`);
+    el.setAttribute('opacity','0.75');
+    svg.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// SLOTS
+// ═══════════════════════════════════════════════
+function renderSlots(){
+  const wrap = document.getElementById('diag-wrap');
+  wrap.querySelectorAll('.slot').forEach(e=>e.remove());
+  SLOTS.forEach(s=>{
+    const d = document.createElement('div');
+    d.className = 'slot'+(s.type==='shunt'?' shunt':'');
+    d.id = 'sl-'+s.id;
+    d.style.left = s.cx+'px';
+    d.style.top  = s.cy+'px';
+    const val = slotMap[s.id];
+    d.textContent = val || '?';
+    if(val) d.classList.add('filled');
+    d.addEventListener('click', ()=>onSlot(s.id));
+    d.addEventListener('touchend', e=>{e.preventDefault(); onSlot(s.id);});
+    wrap.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CARD BANK
+// ═══════════════════════════════════════════════
+function renderBank(){
+  const bank = document.getElementById('card-bank');
+  bank.innerHTML='';
+  const labels = SLOTS.map(s=>s.label).sort(()=>Math.random()-.5);
+  labels.forEach(lbl=>{
+    const d=document.createElement('div');
+    d.className='card';
+    d.id='c-'+esc(lbl);
+    d.textContent=lbl;
+    if(Object.values(slotMap).includes(lbl)) d.classList.add('used');
+    d.addEventListener('click',()=>onCard(lbl));
+    d.addEventListener('touchend',e=>{e.preventDefault();onCard(lbl);});
+    bank.appendChild(d);
+  });
+}
+
+function esc(s){ return s.replace(/[^a-z0-9]/gi,'_'); }
+
+// ═══════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════
+function onCard(lbl){
+  const placed = Object.values(slotMap).includes(lbl);
+  if(placed){
+    const sid = Object.keys(slotMap).find(k=>slotMap[k]===lbl);
+    if(sid){ slotMap[sid]=null; selCard=lbl; updateUI(); return; }
+  }
+  selCard = selCard===lbl ? null : lbl;
+  updateUI();
+}
+
+function onSlot(sid){
+  if(!selCard){
+    if(slotMap[sid]){ selCard=slotMap[sid]; slotMap[sid]=null; updateUI(); }
+    return;
+  }
+  if(slotMap[sid]){
+    const old=slotMap[sid]; slotMap[sid]=selCard; selCard=old;
+  } else {
+    slotMap[sid]=selCard; selCard=null;
+  }
+  updateUI();
+}
+
+function updateUI(){
+  SLOTS.forEach(s=>{
+    const sl=document.getElementById('sl-'+s.id); if(!sl) return;
+    const v=slotMap[s.id];
+    sl.textContent=v||'?';
+    sl.classList.toggle('filled',!!v);
+    sl.classList.toggle('waiting',!!selCard&&!v);
+  });
+  SLOTS.forEach(s=>{
+    const c=document.getElementById('c-'+esc(s.label)); if(!c) return;
+    c.classList.toggle('used', Object.values(slotMap).includes(s.label));
+    c.classList.toggle('selected', selCard===s.label);
+  });
+  const h=document.getElementById('hint');
+  h.textContent = selCard ? `"${selCard}" selecionado — toque em um slot para colocar` : 'Nenhuma peça selecionada';
+}
+
+// ═══════════════════════════════════════════════
+// PHASE 1 CHECK
+// ═══════════════════════════════════════════════
+function checkP1(){
+  let ok=0;
+  const items=[];
+  SLOTS.forEach(s=>{
+    const placed=slotMap[s.id];
+    const correct=placed===s.label;
+    if(correct) ok++;
+    const sl=document.getElementById('sl-'+s.id);
+    if(sl){
+      sl.classList.remove('waiting','filled');
+      if(placed) sl.classList.add(correct?'correct':'wrong');
+      else sl.classList.add('grayed');
+    }
+    items.push({s,placed,correct});
+  });
+
+  // Score stars
+  const pct=ok/SLOTS.length;
+  const stars = pct>=.9?'⭐⭐⭐': pct>=.7?'⭐⭐': pct>=.5?'⭐':'';
+
+  document.getElementById('score-n').textContent=ok;
+  document.getElementById('score-t').textContent=SLOTS.length;
+  document.getElementById('score-stars').textContent=stars;
+
+  const list=document.getElementById('res-list'); list.innerHTML='';
+  items.forEach(({s,placed,correct})=>{
+    const d=document.createElement('div');
+    d.className='res-item '+(correct?'res-ok':'res-err');
+    d.innerHTML=`<span class="res-icon">${correct?'✅':'❌'}</span>
+      <div>
+        <div style="font-weight:bold">${s.label}</div>
+        ${!correct&&placed?`<div class="res-desc">Você colocou: "${placed}"</div>`:''}
+        ${!correct&&!placed?`<div class="res-desc">Não preenchido</div>`:''}
+        <div class="res-desc">${s.desc}</div>
+      </div>`;
+    list.appendChild(d);
+  });
+
+  goPhase(2);
+}
+
+// ═══════════════════════════════════════════════
+// PHASE 3 — QUESTIONS
+// ═══════════════════════════════════════════════
+function goP3(){
+  qAnswers=new Array(QUESTIONS.length).fill(null);
+  const cont=document.getElementById('q-container'); cont.innerHTML='';
+  QUESTIONS.forEach((q,qi)=>{
+    const box=document.createElement('div'); box.className='q-box';
+    box.innerHTML=`<div class="q-text"><b>Q${qi+1}.</b> ${q.q}</div>`;
+    q.opts.forEach((opt,oi)=>{
+      const btn=document.createElement('button');
+      btn.className='q-opt'; btn.id=`q${qi}o${oi}`;
+      btn.textContent=`${String.fromCharCode(65+oi)}) ${opt}`;
+      btn.onclick=()=>pickAns(qi,oi);
+      box.appendChild(btn);
+    });
+    cont.appendChild(box);
+  });
+  document.getElementById('btn-checkq').style.display='none';
+  document.getElementById('btn-goP4').style.display='none';
+  goPhase(3);
+}
+
+let qPicked=0;
+function pickAns(qi,oi){
+  QUESTIONS[qi].opts.forEach((_,i)=>{
+    const b=document.getElementById(`q${qi}o${i}`);
+    if(b){ b.classList.remove('q-chosen'); b.style.borderColor=''; b.style.color=''; }
+  });
+  const btn=document.getElementById(`q${qi}o${oi}`);
+  btn.classList.add('q-chosen');
+  if(qAnswers[qi]===null) qPicked++;
+  qAnswers[qi]=oi;
+  if(qPicked>=QUESTIONS.length) document.getElementById('btn-checkq').style.display='block';
+}
+
+function checkQs(){
+  QUESTIONS.forEach((q,qi)=>{
+    q.opts.forEach((_,oi)=>{
+      const btn=document.getElementById(`q${qi}o${oi}`); if(!btn) return;
+      btn.disabled=true; btn.classList.remove('q-chosen');
+      if(oi===q.ans) btn.classList.add('q-right');
+      else if(qAnswers[qi]===oi) btn.classList.add('q-wrong');
+    });
+    const box=document.getElementById(`q${qi}o0`)?.closest('.q-box');
+    if(box){
+      const exp=document.createElement('div'); exp.className='q-exp';
+      exp.textContent='💡 '+q.exp; box.appendChild(exp);
+    }
+  });
+  document.getElementById('btn-checkq').style.display='none';
+  document.getElementById('btn-goP4').style.display='block';
+  qPicked=0;
+}
+
+// ═══════════════════════════════════════════════
+// PHASE 4 — NEONATAL
+// ═══════════════════════════════════════════════
+function goP4(){
+  neoSel=new Set();
+  const cont=document.getElementById('neo-opts'); cont.innerHTML='';
+  SLOTS.forEach(s=>{
+    const btn=document.createElement('div'); btn.className='neo-btn';
+    btn.id='nb-'+s.id; btn.textContent=s.label;
+    btn.onclick=()=>toggleNeo(s.id,btn);
+    cont.appendChild(btn);
+  });
+  document.getElementById('neo-result').style.display='none';
+  document.getElementById('btn-final').style.display='none';
+  goPhase(4);
+}
+
+function toggleNeo(id,btn){
+  if(neoSel.has(id)){ neoSel.delete(id); btn.classList.remove('sel-close'); }
+  else { neoSel.add(id); btn.classList.add('sel-close'); }
+}
+
+function checkNeo(){
+  let ok=0,total=SLOTS.length;
+  let html='<div style="font-weight:bold;color:#E8A020;margin-bottom:8px;">Fecham ao nascer:</div>';
+
+  SLOTS.forEach(s=>{
+    const shouldClose=CLOSES.has(s.id);
+    const selected=neoSel.has(s.id);
+    if(shouldClose===selected) ok++;
+    if(shouldClose){
+      const icon=selected?'✅':'❌';
+      html+=`<div>${icon} <b>${s.label}</b></div>`;
+    } else if(selected){
+      html+=`<div>⚠️ <b>${s.label}</b> — não fecha ao nascer</div>`;
+    }
+  });
+
+  html+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3550;font-size:10px;color:#8aabcc;line-height:1.8;">
+    <b>Mecanismo:</b><br>
+    • FO: 1ª respiração → ↑ pressão AE → valva do FO cola no septo<br>
+    • DA: ↑ PO₂ → ↓ prostaglandinas → vasoconstricção (horas/dias → lig. arterioso)<br>
+    • DV: queda do fluxo umbilical → trombose (dias/semanas → lig. venoso)<br>
+    • Veia + Art. Umbilicais: ligadas ao cortar o cordão (→ lig. redondo / lig. umbilicais)
+  </div>`;
+
+  html+=`<div style="margin-top:10px;font-size:13px;font-weight:bold;color:#E8A020;">Acertos: ${ok}/${total}</div>`;
+
+  const r=document.getElementById('neo-result');
+  r.innerHTML=html; r.style.display='block';
+  document.getElementById('btn-final').style.display='block';
+}
+
+function goFinal(){ goPhase('final'); }
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function goPhase(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p'+(n==='final'?'final':n)).classList.add('active');
+  const phN = n==='final'?5:n;
+  [1,2,3,4].forEach(i=>{
+    const d=document.getElementById('d'+i); if(!d) return;
+    d.classList.remove('active','done');
+    if(i<phN) d.classList.add('done');
+    else if(i===phN) d.classList.add('active');
+  });
+  document.getElementById('prog').style.width=(phN/4*100)+'%';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function resetP1(){
+  SLOTS.forEach(s=>slotMap[s.id]=null);
+  selCard=null;
+  renderSlots(); renderBank(); updateUI();
+  goPhase(1);
+}
+
+function resetAll(){ resetP1(); }
+
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
